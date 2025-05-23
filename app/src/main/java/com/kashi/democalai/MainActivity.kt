@@ -59,7 +59,7 @@ fun SocialFeedApp() {
         
         composable("home") {
             HomeScreen(
-                viewModel = authViewModel,
+                authViewModel = authViewModel,
                 onLogout = {
                     navController.navigate("login") {
                         popUpTo("home") { inclusive = true }

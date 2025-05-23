@@ -1,8 +1,5 @@
 package com.kashi.democalai.presentation.screen
 
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,34 +14,33 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Snackbar
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.kashi.democalai.R
 import com.kashi.democalai.presentation.viewmodel.AuthViewModel
 import com.kashi.democalai.ui.theme.MyApplicationTheme
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoginScreen(
     viewModel: AuthViewModel = hiltViewModel(),
@@ -69,88 +65,44 @@ fun LoginScreen(
         }
     }
 
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        LoginContent(
-            isLoading = uiState.isLoading,
-            onSignInClick = { viewModel.signInWithGoogle(context) }
-        )
-
-        SnackbarHost(
-            hostState = snackbarHostState,
-            modifier = Modifier.align(Alignment.BottomCenter)
-        )
-    }
-}
-
-@Composable
-private fun LoginContent(
-    isLoading: Boolean,
-    onSignInClick: () -> Unit
-) {
-    val alpha by animateFloatAsState(
-        targetValue = if (isLoading) 0.6f else 1f,
-        animationSpec = tween(300),
-        label = "alpha"
-    )
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(32.dp)
-            .alpha(alpha),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        // App Logo/Title
-        Text(
-            text = "Social Feed",
-            style = MaterialTheme.typography.headlineLarge,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary,
-            textAlign = TextAlign.Center
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Text(
-            text = "Connect with friends and share your thoughts",
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center
-        )
-
-        Spacer(modifier = Modifier.height(64.dp))
-
-        // Google Sign-In Card
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface
-            )
-        ) {
-            Column(
-                modifier = Modifier.padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = "Sign in to get started",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    textAlign = TextAlign.Center
+    Scaffold(
+        topBar = {
+            Column {
+                TopAppBar(
+                    title = {
+                        Box(
+                            modifier = Modifier.fillMaxWidth(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "Wall",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
                 )
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                GoogleSignInButton(
-                    onClick = onSignInClick,
-                    enabled = !isLoading,
-                    isLoading = isLoading
+                HorizontalDivider(
+                    thickness = 1.dp,
+                    color = MaterialTheme.colorScheme.outline
                 )
             }
+        },
+        snackbarHost = {
+            SnackbarHost(hostState = snackbarHostState)
+        }
+    ) { paddingValues ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues),
+            contentAlignment = Alignment.Center
+        ) {
+            GoogleSignInButton(
+                onClick = { viewModel.signInWithGoogle(context) },
+                enabled = !uiState.isLoading,
+                isLoading = uiState.isLoading
+            )
         }
     }
 }
@@ -165,20 +117,18 @@ private fun GoogleSignInButton(
         onClick = onClick,
         enabled = enabled,
         modifier = Modifier
-            .fillMaxWidth()
-            .height(56.dp),
-        shape = RoundedCornerShape(12.dp),
+            .height(56.dp)
+            .padding(horizontal = 32.dp),
+        shape = RoundedCornerShape(28.dp),
         colors = ButtonDefaults.buttonColors(
-            containerColor = Color.White,
-            contentColor = Color.Black,
-            disabledContainerColor = Color.Gray
-        ),
-        elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
+            containerColor = Color(0xFF00A3FF),
+            contentColor = Color.White
+        )
     ) {
         if (isLoading) {
             CircularProgressIndicator(
                 modifier = Modifier.size(24.dp),
-                color = MaterialTheme.colorScheme.primary,
+                color = Color.White,
                 strokeWidth = 2.dp
             )
         } else {
@@ -186,51 +136,51 @@ private fun GoogleSignInButton(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center
             ) {
-                // Google logo placeholder - replace with actual Google logo
-                Box(
-                    modifier = Modifier
-                        .size(24.dp)
-                        .padding(2.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "G",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF4285F4)
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(12.dp))
-
                 Text(
-                    text = "Sign in with Google",
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Medium
+                    text = "Sign In With Google",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
                 )
             }
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Preview(showBackground = true)
 @Composable
 fun LoginScreenPreview() {
     MyApplicationTheme {
-        LoginContent(
-            isLoading = false,
-            onSignInClick = {}
-        )
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = {
+                        Box(
+                            modifier = Modifier.fillMaxWidth(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "Wall",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+                )
+            }
+        ) { paddingValues ->
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues),
+                contentAlignment = Alignment.Center
+            ) {
+                GoogleSignInButton(
+                    onClick = {},
+                    enabled = true,
+                    isLoading = false
+                )
+            }
+        }
     }
 }
-
-@Preview(showBackground = true)
-@Composable
-fun LoginScreenLoadingPreview() {
-    MyApplicationTheme {
-        LoginContent(
-            isLoading = true,
-            onSignInClick = {}
-        )
-    }
-} 
