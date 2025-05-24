@@ -1,8 +1,14 @@
 package com.kashi.democalai.presentation.screen
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -48,13 +54,19 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.pulltorefresh.PullToRefreshContainer
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -149,11 +161,13 @@ fun HomeScreen(
             onTextChange = homeViewModel::updateNewPostText,
             onCreatePost = homeViewModel::createPost,
             onToggleFilter = homeViewModel::toggleFilter,
+            onRefresh = homeViewModel::refreshPosts,
             modifier = Modifier.padding(paddingValues)
         )
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun HomeContent(
     user: FirebaseUser?,
@@ -161,6 +175,7 @@ private fun HomeContent(
     onTextChange: (String) -> Unit,
     onCreatePost: () -> Unit,
     onToggleFilter: () -> Unit,
+    onRefresh: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -199,16 +214,38 @@ private fun HomeContent(
         
         Spacer(modifier = Modifier.height(16.dp))
         
-        // Posts list
-        if (uiState.isLoading && uiState.posts.isEmpty()) {
-            Box(
-                modifier = Modifier.fillMaxWidth(),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator()
+        // Posts list with pull-to-refresh
+        val pullToRefreshState = rememberPullToRefreshState()
+        
+        LaunchedEffect(pullToRefreshState.isRefreshing) {
+            if (pullToRefreshState.isRefreshing) {
+                onRefresh()
             }
-        } else {
-            PostsList(posts = uiState.posts)
+        }
+        
+        LaunchedEffect(uiState.isLoading) {
+            if (!uiState.isLoading) {
+                pullToRefreshState.endRefresh()
+            }
+        }
+        
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .nestedScroll(pullToRefreshState.nestedScrollConnection)
+        ) {
+            if (uiState.isLoading && uiState.posts.isEmpty()) {
+                SkeletonPostsList()
+            } else {
+                PostsList(posts = uiState.posts)
+            }
+            
+            PullToRefreshContainer(
+                state = pullToRefreshState,
+                modifier = Modifier.align(Alignment.TopCenter),
+                containerColor = Color.White,
+                contentColor = Color(0xFF00A3FF)
+            )
         }
     }
 }
@@ -258,13 +295,23 @@ private fun CreatePostSection(
             shape = RoundedCornerShape(7.dp),
             modifier = Modifier.height(48.dp).padding(start = 13.dp)
         ) {
-            if (isCreating) {
+            AnimatedVisibility(
+                visible = isCreating,
+                enter = fadeIn(animationSpec = tween(300)),
+                exit = fadeOut(animationSpec = tween(300))
+            ) {
                 CircularProgressIndicator(
                     modifier = Modifier.size(20.dp),
                     color = Color.White,
                     strokeWidth = 2.dp
                 )
-            } else {
+            }
+            
+            AnimatedVisibility(
+                visible = !isCreating,
+                enter = fadeIn(animationSpec = tween(300)),
+                exit = fadeOut(animationSpec = tween(300))
+            ) {
                 Text(
                     text = "Add to the wall",
                     color = Color.White,
@@ -283,10 +330,16 @@ private fun PostsList(posts: List<Post>) {
             AnimatedVisibility(
                 visible = true,
                 enter = slideInVertically(
-                    initialOffsetY = { 50 },
-                    animationSpec = tween(300, delayMillis = index * 50)
+                    initialOffsetY = { 100 },
+                    animationSpec = tween(
+                        durationMillis = 500,
+                        delayMillis = minOf(index * 75, 300)
+                    )
                 ) + fadeIn(
-                    animationSpec = tween(300, delayMillis = index * 50)
+                    animationSpec = tween(
+                        durationMillis = 500,
+                        delayMillis = minOf(index * 75, 300)
+                    )
                 )
             ) {
                 PostItem(post = post)
@@ -351,4 +404,130 @@ private fun PostItem(post: Post) {
 private fun formatTimestamp(date: Date): String {
     val format = SimpleDateFormat("h:mma", Locale.getDefault())
     return format.format(date).lowercase()
+}
+
+// Shimmer effect modifier
+fun Modifier.shimmer(): Modifier = composed {
+    val infiniteTransition = rememberInfiniteTransition(label = "shimmer")
+    val alpha = infiniteTransition.animateFloat(
+        initialValue = 0.2f,
+        targetValue = 0.9f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1000, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "alpha"
+    )
+    val shimmerColors = listOf(
+        Color.LightGray.copy(alpha = alpha.value),
+        Color.Gray.copy(alpha = alpha.value),
+        Color.LightGray.copy(alpha = alpha.value)
+    )
+    
+    background(
+        brush = Brush.linearGradient(
+            colors = shimmerColors,
+            start = Offset.Zero,
+            end = Offset(x = 300f, y = 300f)
+        ),
+        shape = RoundedCornerShape(4.dp)
+    )
+}
+
+@Composable
+private fun SkeletonPostsList() {
+    LazyColumn {
+        items(5) { index ->
+            AnimatedVisibility(
+                visible = true,
+                enter = slideInVertically(
+                    initialOffsetY = { 50 },
+                    animationSpec = tween(300, delayMillis = index * 100)
+                ) + fadeIn(
+                    animationSpec = tween(300, delayMillis = index * 100)
+                )
+            ) {
+                SkeletonPostItem()
+            }
+            
+            if (index < 4) {
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun SkeletonPostItem() {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        // Skeleton avatar
+        Box(
+            modifier = Modifier
+                .size(50.dp)
+                .shimmer()
+                .background(
+                    Color.LightGray,
+                    CircleShape
+                )
+        )
+
+        Column(
+            modifier = Modifier.weight(1f)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Skeleton username
+                Box(
+                    modifier = Modifier
+                        .width(120.dp)
+                        .height(20.dp)
+                        .shimmer()
+                )
+                
+                // Skeleton timestamp
+                Box(
+                    modifier = Modifier
+                        .width(60.dp)
+                        .height(16.dp)
+                        .shimmer()
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            // Skeleton message lines
+            Column {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(16.dp)
+                        .shimmer()
+                )
+                
+                Spacer(modifier = Modifier.height(4.dp))
+                
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(0.8f)
+                        .height(16.dp)
+                        .shimmer()
+                )
+                
+                Spacer(modifier = Modifier.height(4.dp))
+                
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(0.6f)
+                        .height(16.dp)
+                        .shimmer()
+                )
+            }
+        }
+    }
 }

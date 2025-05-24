@@ -95,4 +95,37 @@ class PostsRepository @Inject constructor() {
 
         awaitClose { listener.remove() }
     }
+
+    suspend fun refreshAllPosts(): Result<Unit> {
+        return try {
+            // Force a cache refresh by getting fresh data from server
+            val snapshot = postsCollection
+                .orderBy("timestamp", Query.Direction.ASCENDING)
+                .get(com.google.firebase.firestore.Source.SERVER)
+                .await()
+            
+            Log.d(TAG, "Refreshed ${snapshot.documents.size} posts from server")
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error refreshing posts", e)
+            Result.failure(e)
+        }
+    }
+
+    suspend fun refreshUserPosts(userId: String): Result<Unit> {
+        return try {
+            // Force a cache refresh by getting fresh data from server
+            val snapshot = postsCollection
+                .whereEqualTo("userId", userId)
+                .orderBy("timestamp", Query.Direction.ASCENDING)
+                .get(com.google.firebase.firestore.Source.SERVER)
+                .await()
+            
+            Log.d(TAG, "Refreshed ${snapshot.documents.size} user posts from server")
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error refreshing user posts", e)
+            Result.failure(e)
+        }
+    }
 } 

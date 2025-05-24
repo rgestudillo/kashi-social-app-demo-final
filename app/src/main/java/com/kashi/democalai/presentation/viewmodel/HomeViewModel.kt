@@ -37,7 +37,10 @@ class HomeViewModel @Inject constructor(
 
     private fun loadPosts() {
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true)
+            // Only show initial loading if we don't have posts yet
+            if (_uiState.value.posts.isEmpty()) {
+                _uiState.value = _uiState.value.copy(isLoading = true)
+            }
             
             try {
                 if (_uiState.value.showOnlyMyPosts) {
@@ -50,6 +53,11 @@ class HomeViewModel @Inject constructor(
                                 error = null
                             )
                         }
+                    } else {
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false,
+                            error = "User not authenticated"
+                        )
                     }
                 } else {
                     postsRepository.getAllPostsRealtime().collect { posts ->
@@ -109,5 +117,43 @@ class HomeViewModel @Inject constructor(
 
     fun clearError() {
         _uiState.value = _uiState.value.copy(error = null)
+    }
+
+    fun refreshPosts() {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            
+            try {
+                val refreshResult = if (_uiState.value.showOnlyMyPosts) {
+                    val currentUserId = auth.currentUser?.uid
+                    if (currentUserId != null) {
+                        postsRepository.refreshUserPosts(currentUserId)
+                    } else {
+                        Result.failure(Exception("User not authenticated"))
+                    }
+                } else {
+                    postsRepository.refreshAllPosts()
+                }
+                
+                refreshResult
+                    .onSuccess {
+                        // Add a minimum delay for better UX (shows the refresh animation)
+                        kotlinx.coroutines.delay(300)
+                        _uiState.value = _uiState.value.copy(isLoading = false, error = null)
+                    }
+                    .onFailure { exception ->
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false,
+                            error = exception.message ?: "Failed to refresh posts"
+                        )
+                    }
+                
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    error = e.message ?: "Failed to refresh posts"
+                )
+            }
+        }
     }
 } 
