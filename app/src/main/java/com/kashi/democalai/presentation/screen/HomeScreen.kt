@@ -1,5 +1,6 @@
 package com.kashi.democalai.presentation.screen
 
+import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -162,6 +163,7 @@ fun HomeScreen(
             onCreatePost = homeViewModel::createPost,
             onToggleFilter = homeViewModel::toggleFilter,
             onRefresh = homeViewModel::refreshPosts,
+            onLoadMore = homeViewModel::loadMorePosts,
             modifier = Modifier.padding(paddingValues)
         )
     }
@@ -176,6 +178,7 @@ private fun HomeContent(
     onCreatePost: () -> Unit,
     onToggleFilter: () -> Unit,
     onRefresh: () -> Unit,
+    onLoadMore: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -237,7 +240,12 @@ private fun HomeContent(
             if (uiState.isLoading && uiState.posts.isEmpty()) {
                 SkeletonPostsList()
             } else {
-                PostsList(posts = uiState.posts)
+                PostsList(
+                    posts = uiState.posts,
+                    isLoadingMore = uiState.isLoadingMore,
+                    hasMorePosts = uiState.hasMorePosts,
+                    onLoadMore = onLoadMore
+                )
             }
             
             PullToRefreshContainer(
@@ -324,9 +332,19 @@ private fun CreatePostSection(
 }
 
 @Composable
-private fun PostsList(posts: List<Post>) {
+private fun PostsList(
+    posts: List<Post>,
+    isLoadingMore: Boolean = false,
+    hasMorePosts: Boolean = true,
+    onLoadMore: () -> Unit = {}
+) {
     LazyColumn {
         itemsIndexed(posts) { index, post ->
+            // Log scroll position
+            if (index == 0) {
+                Log.d("HomeScreen", "📜 PostsList: Rendering first post")
+            }
+            
             AnimatedVisibility(
                 visible = true,
                 enter = slideInVertically(
@@ -345,8 +363,57 @@ private fun PostsList(posts: List<Post>) {
                 PostItem(post = post)
             }
             
+            // Check if we're near the end and should load more
+            if (index >= posts.size - 3 && hasMorePosts && !isLoadingMore) {
+                Log.d("HomeScreen", "🔄 PostsList: Near end! index=$index, total=${posts.size}, triggering loadMore")
+                LaunchedEffect(index) {
+                    onLoadMore()
+                }
+            }
+            
             if (index < posts.size - 1) {
                 Spacer(modifier = Modifier.height(16.dp))
+            }
+        }
+        
+        // Loading indicator at the bottom
+        if (isLoadingMore) {
+            item {
+                Log.d("HomeScreen", "⏳ PostsList: Showing loading indicator at bottom")
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        color = Color(0xFF00A3FF),
+                        strokeWidth = 2.dp
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Loading more posts...",
+                        color = Color.Gray,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+            }
+        }
+        
+        // End of list indicator
+        if (!hasMorePosts && posts.isNotEmpty()) {
+            item {
+                Log.d("HomeScreen", "🏁 PostsList: Showing end of list indicator")
+                Text(
+                    text = "You've reached the end!",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    textAlign = TextAlign.Center,
+                    color = Color.Gray,
+                    style = MaterialTheme.typography.bodyMedium
+                )
             }
         }
     }
