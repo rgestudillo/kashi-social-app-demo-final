@@ -306,25 +306,30 @@ private fun CreatePostSection(
                 containerColor = Color(0xFF00A3FF)
             ),
             shape = RoundedCornerShape(7.dp),
-            modifier = Modifier.height(48.dp).padding(start = 13.dp)
+            modifier = Modifier
+                .height(48.dp)
+                .width(200.dp)  // Increased width to fit content on one line
+                .padding(start = 13.dp)
         ) {
-            AnimatedVisibility(
-                visible = isCreating,
-                enter = fadeIn(animationSpec = tween(300)),
-                exit = fadeOut(animationSpec = tween(300))
-            ) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(20.dp),
-                    color = Color.White,
-                    strokeWidth = 2.dp
-                )
-            }
-            
-            AnimatedVisibility(
-                visible = !isCreating,
-                enter = fadeIn(animationSpec = tween(300)),
-                exit = fadeOut(animationSpec = tween(300))
-            ) {
+            if (isCreating) {
+                Row(
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        color = Color.White,
+                        strokeWidth = 2.dp
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Publishing...",
+                        color = Color.White,
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            } else {
                 Text(
                     text = "Add to the wall",
                     color = Color.White,
