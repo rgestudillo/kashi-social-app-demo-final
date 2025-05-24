@@ -10,10 +10,12 @@ This project implements **MVVM (Model-View-ViewModel)** with **Clean Architectur
 app/src/main/java/com/kashi/democalai/
 ├── data/
 │   ├── model/
-│   │   └── Post.kt                    # Firestore data model with Timestamp support
+│   │   ├── Post.kt                    # Firestore data model with Timestamp support
+│   │   └── User.kt                    # User data model with profile information
 │   └── repository/
-│       ├── AuthRepository.kt          # Firebase Auth operations & state management
-│       └── PostsRepository.kt         # Firestore CRUD, real-time listeners & pagination
+│       ├── AuthRepository.kt          # Firebase Auth operations & User state management
+│       ├── PostsRepository.kt         # Firestore CRUD, real-time listeners & pagination
+│       └── UserRepository.kt          # User document management & profile operations
 ├── presentation/
 │   ├── screen/
 │   │   ├── LoginScreen.kt            # Google Sign-In UI with error handling

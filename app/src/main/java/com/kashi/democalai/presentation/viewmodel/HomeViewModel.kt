@@ -6,6 +6,8 @@ import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.DocumentSnapshot
 import com.kashi.democalai.data.model.Post
+import com.kashi.democalai.data.model.User
+import com.kashi.democalai.data.repository.AuthRepository
 import com.kashi.democalai.data.repository.PostsRepository
 import com.kashi.democalai.utils.AnalyticsHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -22,6 +24,7 @@ data class HomeUiState(
     val newPostText: String = "",
     val error: String? = null,
     val showOnlyMyPosts: Boolean = false,
+    val currentUser: User? = null,
     // Pagination fields
     val isLoadingMore: Boolean = false,
     val hasMorePosts: Boolean = true,
@@ -31,6 +34,7 @@ data class HomeUiState(
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val postsRepository: PostsRepository,
+    private val authRepository: AuthRepository,
     private val analyticsHelper: AnalyticsHelper
 ) : ViewModel() {
 
@@ -45,7 +49,16 @@ class HomeViewModel @Inject constructor(
 
     init {
         Log.d(TAG, "🚀 HomeViewModel: Initializing")
-        loadPosts()
+        
+        // Listen to auth state changes to get current user
+        viewModelScope.launch {
+            authRepository.authState.collect { user ->
+                _uiState.value = _uiState.value.copy(currentUser = user)
+                if (user != null) {
+                    loadPosts()
+                }
+            }
+        }
     }
 
     private fun loadPosts() {
@@ -61,9 +74,9 @@ class HomeViewModel @Inject constructor(
             try {
                 if (_uiState.value.showOnlyMyPosts) {
                     Log.d(TAG, "📋 loadPosts: Loading user posts only")
-                    val currentUserId = auth.currentUser?.uid
-                    if (currentUserId != null) {
-                        postsRepository.getUserPostsRealtime(currentUserId).collect { posts ->
+                    val currentUser = _uiState.value.currentUser
+                    if (currentUser != null) {
+                        postsRepository.getUserPostsRealtime(currentUser.id).collect { posts ->
                             Log.d(TAG, "📋 loadPosts: Received ${posts.size} user posts from flow")
                             
                             // Log feed viewed analytics
@@ -143,9 +156,9 @@ class HomeViewModel @Inject constructor(
             try {
                 val result = if (currentState.showOnlyMyPosts) {
                     Log.d(TAG, "📄 loadMorePosts: Loading more user posts")
-                    val currentUserId = auth.currentUser?.uid
-                    if (currentUserId != null) {
-                        postsRepository.loadMoreUserPosts(currentUserId, currentState.lastVisiblePost)
+                    val currentUser = currentState.currentUser
+                    if (currentUser != null) {
+                        postsRepository.loadMoreUserPosts(currentUser.id, currentState.lastVisiblePost)
                     } else {
                         Log.e(TAG, "❌ loadMorePosts: User not authenticated")
                         Result.failure(Exception("User not authenticated"))
@@ -215,6 +228,8 @@ class HomeViewModel @Inject constructor(
     fun createPost() {
         viewModelScope.launch {
             val currentText = _uiState.value.newPostText.trim()
+            val currentUser = _uiState.value.currentUser
+            
             if (currentText.isEmpty()) {
                 Log.w(TAG, "⚠️ createPost: Post text is empty")
                 
@@ -222,6 +237,12 @@ class HomeViewModel @Inject constructor(
                 analyticsHelper.logPostCreationCancelled()
                 
                 _uiState.value = _uiState.value.copy(error = "Post cannot be empty")
+                return@launch
+            }
+            
+            if (currentUser == null) {
+                Log.e(TAG, "❌ createPost: User not authenticated")
+                _uiState.value = _uiState.value.copy(error = "User not authenticated")
                 return@launch
             }
 
@@ -232,7 +253,7 @@ class HomeViewModel @Inject constructor(
             
             _uiState.value = _uiState.value.copy(isCreatingPost = true, error = null)
 
-            postsRepository.createPost(currentText)
+            postsRepository.createPost(currentUser, currentText)
                 .onSuccess {
                     Log.d(TAG, "✅ createPost: Post created successfully")
                     
@@ -297,9 +318,9 @@ class HomeViewModel @Inject constructor(
             try {
                 val refreshResult = if (_uiState.value.showOnlyMyPosts) {
                     Log.d(TAG, "🔄 refreshPosts: Refreshing user posts")
-                    val currentUserId = auth.currentUser?.uid
-                    if (currentUserId != null) {
-                        postsRepository.refreshUserPosts(currentUserId)
+                    val currentUser = _uiState.value.currentUser
+                    if (currentUser != null) {
+                        postsRepository.refreshUserPosts(currentUser.id)
                     } else {
                         Result.failure(Exception("User not authenticated"))
                     }
@@ -362,7 +383,7 @@ class HomeViewModel @Inject constructor(
     }
     
     fun trackPostView(post: Post) {
-        val currentUserId = auth.currentUser?.uid
+        val currentUserId = _uiState.value.currentUser?.id
         val isOwnPost = currentUserId == post.userId
         
         analyticsHelper.logPostViewed(

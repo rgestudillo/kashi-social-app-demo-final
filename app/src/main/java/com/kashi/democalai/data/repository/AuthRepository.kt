@@ -15,15 +15,19 @@ import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingExcept
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.GoogleAuthProvider
+import com.kashi.democalai.data.model.User
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class AuthRepository @Inject constructor() {
+class AuthRepository @Inject constructor(
+    private val userRepository: UserRepository
+) {
     private val auth: FirebaseAuth = FirebaseAuth.getInstance()
 
     companion object {
@@ -34,15 +38,19 @@ class AuthRepository @Inject constructor() {
     val currentUser: FirebaseUser?
         get() = auth.currentUser
 
-    val authState: Flow<FirebaseUser?> = callbackFlow {
+    val authState: Flow<User?> = callbackFlow {
         val listener = FirebaseAuth.AuthStateListener { auth ->
             trySend(auth.currentUser)
         }
         auth.addAuthStateListener(listener)
         awaitClose { auth.removeAuthStateListener(listener) }
+    }.map { firebaseUser ->
+        firebaseUser?.let { 
+            userRepository.getUser(it.uid).getOrNull()
+        }
     }
 
-    suspend fun signInWithGoogle(context: Context): Result<FirebaseUser?> {
+    suspend fun signInWithGoogle(context: Context): Result<User?> {
         return try {
             val credential = getGoogleCredential(context)
             val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(credential.data)
@@ -50,7 +58,21 @@ class AuthRepository @Inject constructor() {
             
             val result = auth.signInWithCredential(authCredential).await()
             Log.d(TAG, "signInWithCredential:success")
-            Result.success(result.user)
+            
+            // Create or update user document in Firestore
+            result.user?.let { firebaseUser ->
+                userRepository.createOrUpdateUser(firebaseUser)
+                    .onSuccess { user ->
+                        Log.d(TAG, "User document created/updated successfully")
+                        return Result.success(user)
+                    }
+                    .onFailure { e ->
+                        Log.e(TAG, "Failed to create user document", e)
+                        return Result.failure(e)
+                    }
+            }
+            
+            Result.success(null)
         } catch (e: Exception) {
             Log.w(TAG, "signInWithCredential:failure", e)
             Result.failure(e)

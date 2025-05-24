@@ -75,8 +75,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.google.firebase.auth.FirebaseUser
 import com.kashi.democalai.data.model.Post
+import com.kashi.democalai.data.model.User
 import com.kashi.democalai.presentation.viewmodel.AuthViewModel
 import com.kashi.democalai.presentation.viewmodel.HomeViewModel
 import com.kashi.democalai.ui.theme.MyApplicationTheme
@@ -175,7 +175,7 @@ fun HomeScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun HomeContent(
-    user: FirebaseUser?,
+    user: User?,
     uiState: com.kashi.democalai.presentation.viewmodel.HomeUiState,
     onTextChange: (String) -> Unit,
     onCreatePost: () -> Unit,

@@ -3,7 +3,7 @@ package com.kashi.democalai.presentation.viewmodel
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.google.firebase.auth.FirebaseUser
+import com.kashi.democalai.data.model.User
 import com.kashi.democalai.data.repository.AuthRepository
 import com.kashi.democalai.utils.AnalyticsHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -16,7 +16,7 @@ import javax.inject.Inject
 data class AuthUiState(
     val isLoading: Boolean = false,
     val isInitializing: Boolean = true, // Track initial auth state determination
-    val user: FirebaseUser? = null,
+    val user: User? = null,
     val error: String? = null
 )
 
@@ -40,11 +40,11 @@ class AuthViewModel @Inject constructor(
                 )
                 
                 // Set user properties for analytics
-                user?.let { firebaseUser ->
-                    analyticsHelper.setUserId(firebaseUser.uid)
+                user?.let { appUser ->
+                    analyticsHelper.setUserId(appUser.id)
                     analyticsHelper.setUserProperty("user_type", "authenticated")
-                    firebaseUser.email?.let { email ->
-                        analyticsHelper.setUserProperty("email_domain", email.substringAfter("@"))
+                    if (appUser.email.isNotEmpty()) {
+                        analyticsHelper.setUserProperty("email_domain", appUser.email.substringAfter("@"))
                     }
                 }
             }

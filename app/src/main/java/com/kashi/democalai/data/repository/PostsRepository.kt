@@ -6,6 +6,7 @@ import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import com.kashi.democalai.data.model.Post
+import com.kashi.democalai.data.model.User
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -14,7 +15,9 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class PostsRepository @Inject constructor() {
+class PostsRepository @Inject constructor(
+    private val userRepository: UserRepository
+) {
     private val firestore = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
     private val postsCollection = firestore.collection("posts")
@@ -24,24 +27,25 @@ class PostsRepository @Inject constructor() {
         private const val PAGE_SIZE = 20 // Load 20 posts per page
     }
 
-    suspend fun createPost(message: String): Result<Unit> {
+    suspend fun createPost(user: User, message: String): Result<Unit> {
         return try {
-            val currentUser = auth.currentUser
-            if (currentUser == null) {
-                Log.e(TAG, "❌ CreatePost: User not authenticated")
-                return Result.failure(Exception("User not authenticated"))
-            }
-
-            Log.d(TAG, "📝 CreatePost: Creating post for user ${currentUser.displayName}")
+            Log.d(TAG, "📝 CreatePost: Creating post for user ${user.displayName}")
             
             val post = Post(
-                userId = currentUser.uid,
-                userName = currentUser.displayName ?: "Unknown User",
-                userEmail = currentUser.email ?: "",
+                userId = user.id,
+                userName = user.displayName,
+                userEmail = user.email,
                 message = message.trim()
             )
 
             postsCollection.add(post).await()
+            
+            // Increment user's post count
+            userRepository.incrementPostCount(user.id)
+                .onFailure { e ->
+                    Log.w(TAG, "⚠️ CreatePost: Failed to increment post count", e)
+                }
+            
             Log.d(TAG, "✅ CreatePost: Post created successfully")
             Result.success(Unit)
         } catch (e: Exception) {
