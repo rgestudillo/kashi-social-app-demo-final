@@ -10,18 +10,20 @@ This project implements **MVVM (Model-View-ViewModel)** with **Clean Architectur
 app/src/main/java/com/kashi/democalai/
 ├── data/
 │   ├── model/
-│   │   └── Post.kt                    # Firestore data model with annotations
+│   │   └── Post.kt                    # Firestore data model with Timestamp support
 │   └── repository/
-│       ├── AuthRepository.kt          # Authentication operations & state management
-│       └── PostsRepository.kt         # Firestore CRUD & real-time listeners
+│       ├── AuthRepository.kt          # Firebase Auth operations & state management
+│       └── PostsRepository.kt         # Firestore CRUD, real-time listeners & pagination
 ├── presentation/
 │   ├── screen/
-│   │   ├── LoginScreen.kt            # Google Sign-In UI with state handling
-│   │   └── HomeScreen.kt             # Main feed with post creation & display
+│   │   ├── LoginScreen.kt            # Google Sign-In UI with error handling
+│   │   └── HomeScreen.kt             # Main feed with post creation, filtering & animations
 │   └── viewmodel/
-│       ├── AuthViewModel.kt          # Auth state management with StateFlow
-│       └── HomeViewModel.kt          # Home screen state & business logic
-├── ui/theme/                         # Material Design 3 theming
+│       ├── AuthViewModel.kt          # Auth state management with reactive flows
+│       └── HomeViewModel.kt          # Feed state, post creation & analytics tracking
+├── ui/theme/                         # Material Design 3 theming & colors
+├── utils/
+│   └── AnalyticsHelper.kt            # Post view tracking and analytics
 ├── MainActivity.kt                   # Navigation setup with Hilt injection
 └── SocialFeedApplication.kt          # Application class with @HiltAndroidApp
 ```
