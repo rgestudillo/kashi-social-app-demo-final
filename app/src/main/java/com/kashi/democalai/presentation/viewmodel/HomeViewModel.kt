@@ -7,6 +7,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.DocumentSnapshot
 import com.kashi.democalai.data.model.Post
 import com.kashi.democalai.data.repository.PostsRepository
+import com.kashi.democalai.utils.AnalyticsHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -29,7 +30,8 @@ data class HomeUiState(
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
-    private val postsRepository: PostsRepository
+    private val postsRepository: PostsRepository,
+    private val analyticsHelper: AnalyticsHelper
 ) : ViewModel() {
 
     private val auth = FirebaseAuth.getInstance()
@@ -63,6 +65,10 @@ class HomeViewModel @Inject constructor(
                     if (currentUserId != null) {
                         postsRepository.getUserPostsRealtime(currentUserId).collect { posts ->
                             Log.d(TAG, "📋 loadPosts: Received ${posts.size} user posts from flow")
+                            
+                            // Log feed viewed analytics
+                            analyticsHelper.logFeedViewed("my_posts", posts.size)
+                            
                             _uiState.value = _uiState.value.copy(
                                 posts = posts,
                                 isLoading = false,
@@ -85,6 +91,10 @@ class HomeViewModel @Inject constructor(
                     Log.d(TAG, "📋 loadPosts: Loading all posts")
                     postsRepository.getAllPostsRealtime().collect { posts ->
                         Log.d(TAG, "📋 loadPosts: Received ${posts.size} posts from flow")
+                        
+                        // Log feed viewed analytics
+                        analyticsHelper.logFeedViewed("all_posts", posts.size)
+                        
                         _uiState.value = _uiState.value.copy(
                             posts = posts,
                             isLoading = false,
@@ -94,6 +104,14 @@ class HomeViewModel @Inject constructor(
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "❌ loadPosts: Error loading posts", e)
+                
+                // Log error analytics
+                analyticsHelper.logError(
+                    errorType = "posts_load_failed",
+                    errorMessage = e.message ?: "Failed to load posts",
+                    screenName = "home"
+                )
+                
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     error = e.message ?: "Failed to load posts"
@@ -113,6 +131,10 @@ class HomeViewModel @Inject constructor(
 
         Log.d(TAG, "📄 loadMorePosts: Starting to load more posts")
         Log.d(TAG, "📄 loadMorePosts: Current posts count = ${currentState.posts.size}")
+        
+        // Log load more analytics
+        val feedType = if (currentState.showOnlyMyPosts) "my_posts" else "all_posts"
+        analyticsHelper.logLoadMorePosts(feedType, currentState.posts.size)
         
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoadingMore = true, error = null)
@@ -154,6 +176,14 @@ class HomeViewModel @Inject constructor(
                     }
                     .onFailure { exception ->
                         Log.e(TAG, "❌ loadMorePosts: Failed to load more posts", exception)
+                        
+                        // Log load more error
+                        analyticsHelper.logError(
+                            errorType = "load_more_posts_failed",
+                            errorMessage = exception.message ?: "Failed to load more posts",
+                            screenName = "home"
+                        )
+                        
                         _uiState.value = _uiState.value.copy(
                             isLoadingMore = false,
                             error = exception.message ?: "Failed to load more posts"
@@ -161,6 +191,14 @@ class HomeViewModel @Inject constructor(
                     }
             } catch (e: Exception) {
                 Log.e(TAG, "❌ loadMorePosts: Exception during load more", e)
+                
+                // Log exception analytics
+                analyticsHelper.logError(
+                    errorType = "load_more_posts_exception",
+                    errorMessage = e.message ?: "Failed to load more posts",
+                    screenName = "home"
+                )
+                
                 _uiState.value = _uiState.value.copy(
                     isLoadingMore = false,
                     error = e.message ?: "Failed to load more posts"
@@ -179,16 +217,29 @@ class HomeViewModel @Inject constructor(
             val currentText = _uiState.value.newPostText.trim()
             if (currentText.isEmpty()) {
                 Log.w(TAG, "⚠️ createPost: Post text is empty")
+                
+                // Log post creation cancelled due to empty text
+                analyticsHelper.logPostCreationCancelled()
+                
                 _uiState.value = _uiState.value.copy(error = "Post cannot be empty")
                 return@launch
             }
 
             Log.d(TAG, "📝 createPost: Creating post with ${currentText.length} characters")
+            
+            // Log post creation started
+            analyticsHelper.logPostCreationStarted()
+            
             _uiState.value = _uiState.value.copy(isCreatingPost = true, error = null)
 
             postsRepository.createPost(currentText)
                 .onSuccess {
                     Log.d(TAG, "✅ createPost: Post created successfully")
+                    
+                    // Log successful post creation
+                    analyticsHelper.logPostCreated(currentText.length)
+                    analyticsHelper.logUserEngagement("post_created")
+                    
                     _uiState.value = _uiState.value.copy(
                         isCreatingPost = false,
                         newPostText = "",
@@ -197,6 +248,14 @@ class HomeViewModel @Inject constructor(
                 }
                 .onFailure { exception ->
                     Log.e(TAG, "❌ createPost: Failed to create post", exception)
+                    
+                    // Log post creation error
+                    analyticsHelper.logError(
+                        errorType = "post_creation_failed",
+                        errorMessage = exception.message ?: "Failed to create post",
+                        screenName = "home"
+                    )
+                    
                     _uiState.value = _uiState.value.copy(
                         isCreatingPost = false,
                         error = exception.message ?: "Failed to create post"
@@ -208,6 +267,11 @@ class HomeViewModel @Inject constructor(
     fun toggleFilter() {
         val newShowOnlyMyPosts = !_uiState.value.showOnlyMyPosts
         Log.d(TAG, "🔄 toggleFilter: Switching to showOnlyMyPosts = $newShowOnlyMyPosts")
+        
+        // Log filter toggle analytics
+        val newFilterState = if (newShowOnlyMyPosts) "my_posts" else "all_posts"
+        analyticsHelper.logFilterToggled(newFilterState)
+        analyticsHelper.logUserEngagement("filter_toggled")
         
         _uiState.value = _uiState.value.copy(
             showOnlyMyPosts = newShowOnlyMyPosts,
@@ -222,6 +286,12 @@ class HomeViewModel @Inject constructor(
     fun refreshPosts() {
         viewModelScope.launch {
             Log.d(TAG, "🔄 refreshPosts: Starting refresh")
+            
+            // Log refresh analytics
+            val feedType = if (_uiState.value.showOnlyMyPosts) "my_posts" else "all_posts"
+            analyticsHelper.logFeedRefreshed(feedType)
+            analyticsHelper.logUserEngagement("feed_refreshed")
+            
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             
             try {
@@ -254,6 +324,14 @@ class HomeViewModel @Inject constructor(
                     }
                     .onFailure { exception ->
                         Log.e(TAG, "❌ refreshPosts: Refresh failed", exception)
+                        
+                        // Log refresh error
+                        analyticsHelper.logError(
+                            errorType = "refresh_posts_failed",
+                            errorMessage = exception.message ?: "Failed to refresh posts",
+                            screenName = "home"
+                        )
+                        
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
                             error = exception.message ?: "Failed to refresh posts"
@@ -262,6 +340,14 @@ class HomeViewModel @Inject constructor(
                 
             } catch (e: Exception) {
                 Log.e(TAG, "❌ refreshPosts: Exception during refresh", e)
+                
+                // Log refresh exception
+                analyticsHelper.logError(
+                    errorType = "refresh_posts_exception",
+                    errorMessage = e.message ?: "Failed to refresh posts",
+                    screenName = "home"
+                )
+                
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     error = e.message ?: "Failed to refresh posts"
@@ -273,5 +359,18 @@ class HomeViewModel @Inject constructor(
     fun clearError() {
         Log.d(TAG, "🧹 clearError: Clearing error state")
         _uiState.value = _uiState.value.copy(error = null)
+    }
+    
+    fun trackPostView(post: Post) {
+        val currentUserId = auth.currentUser?.uid
+        val isOwnPost = currentUserId == post.userId
+        
+        analyticsHelper.logPostViewed(
+            postId = post.id,
+            authorId = post.userId,
+            isOwnPost = isOwnPost
+        )
+        
+        Log.d(TAG, "📊 trackPostView: Tracked view for post ${post.id}, isOwnPost=$isOwnPost")
     }
 } 

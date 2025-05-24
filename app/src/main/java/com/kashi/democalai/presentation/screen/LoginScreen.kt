@@ -39,11 +39,13 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kashi.democalai.presentation.viewmodel.AuthViewModel
 import com.kashi.democalai.ui.theme.MyApplicationTheme
+import com.kashi.democalai.utils.AnalyticsHelper
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoginScreen(
     viewModel: AuthViewModel = hiltViewModel(),
+    analyticsHelper: AnalyticsHelper,
     onLoginSuccess: () -> Unit
 ) {
     val context = LocalContext.current

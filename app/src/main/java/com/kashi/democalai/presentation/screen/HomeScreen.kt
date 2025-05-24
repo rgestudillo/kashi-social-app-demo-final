@@ -80,6 +80,7 @@ import com.kashi.democalai.data.model.Post
 import com.kashi.democalai.presentation.viewmodel.AuthViewModel
 import com.kashi.democalai.presentation.viewmodel.HomeViewModel
 import com.kashi.democalai.ui.theme.MyApplicationTheme
+import com.kashi.democalai.utils.AnalyticsHelper
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -89,6 +90,7 @@ import java.util.Locale
 fun HomeScreen(
     authViewModel: AuthViewModel = hiltViewModel(),
     homeViewModel: HomeViewModel = hiltViewModel(),
+    analyticsHelper: AnalyticsHelper,
     onLogout: () -> Unit
 ) {
     val context = LocalContext.current
@@ -164,6 +166,7 @@ fun HomeScreen(
             onToggleFilter = homeViewModel::toggleFilter,
             onRefresh = homeViewModel::refreshPosts,
             onLoadMore = homeViewModel::loadMorePosts,
+            onPostView = homeViewModel::trackPostView,
             modifier = Modifier.padding(paddingValues)
         )
     }
@@ -179,6 +182,7 @@ private fun HomeContent(
     onToggleFilter: () -> Unit,
     onRefresh: () -> Unit,
     onLoadMore: () -> Unit,
+    onPostView: (Post) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -244,7 +248,8 @@ private fun HomeContent(
                     posts = uiState.posts,
                     isLoadingMore = uiState.isLoadingMore,
                     hasMorePosts = uiState.hasMorePosts,
-                    onLoadMore = onLoadMore
+                    onLoadMore = onLoadMore,
+                    onPostView = onPostView
                 )
             }
             
@@ -336,7 +341,8 @@ private fun PostsList(
     posts: List<Post>,
     isLoadingMore: Boolean = false,
     hasMorePosts: Boolean = true,
-    onLoadMore: () -> Unit = {}
+    onLoadMore: () -> Unit = {},
+    onPostView: (Post) -> Unit = {}
 ) {
     LazyColumn {
         itemsIndexed(posts) { index, post ->
@@ -360,7 +366,10 @@ private fun PostsList(
                     )
                 )
             ) {
-                PostItem(post = post)
+                PostItem(
+                    post = post,
+                    onPostView = onPostView
+                )
             }
             
             // Check if we're near the end and should load more
@@ -420,7 +429,15 @@ private fun PostsList(
 }
 
 @Composable
-private fun PostItem(post: Post) {
+private fun PostItem(
+    post: Post,
+    onPostView: (Post) -> Unit = {}
+) {
+    // Track post view when the item is composed
+    LaunchedEffect(post.id) {
+        onPostView(post)
+    }
+    
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(12.dp)

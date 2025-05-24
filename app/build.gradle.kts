@@ -77,6 +77,7 @@ dependencies {
     // Dependency Injection - Hilt
     implementation(libs.hilt.android)
     implementation(libs.androidx.hilt.navigation.compose)
+    implementation(libs.firebase.analytics)
     kapt(libs.hilt.compiler)
     
     testImplementation(libs.junit)
