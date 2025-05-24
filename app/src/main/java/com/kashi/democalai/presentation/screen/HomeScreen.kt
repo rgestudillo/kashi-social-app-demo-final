@@ -241,7 +241,8 @@ private fun HomeContent(
                 .fillMaxSize()
                 .nestedScroll(pullToRefreshState.nestedScrollConnection)
         ) {
-            if (uiState.isLoading && uiState.posts.isEmpty()) {
+            // Only show skeleton on true initial load, not when filtering or after first load
+            if (uiState.isLoading && !uiState.hasEverLoadedPosts && !pullToRefreshState.isRefreshing) {
                 SkeletonPostsList()
             } else {
                 PostsList(
@@ -249,7 +250,8 @@ private fun HomeContent(
                     isLoadingMore = uiState.isLoadingMore,
                     hasMorePosts = uiState.hasMorePosts,
                     onLoadMore = onLoadMore,
-                    onPostView = onPostView
+                    onPostView = onPostView,
+                    isFiltering = uiState.isLoading && uiState.posts.isNotEmpty()
                 )
             }
             
@@ -347,9 +349,36 @@ private fun PostsList(
     isLoadingMore: Boolean = false,
     hasMorePosts: Boolean = true,
     onLoadMore: () -> Unit = {},
-    onPostView: (Post) -> Unit = {}
+    onPostView: (Post) -> Unit = {},
+    isFiltering: Boolean = false
 ) {
     LazyColumn {
+        // Show subtle filtering indicator
+        if (isFiltering) {
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        color = Color(0xFF00A3FF),
+                        strokeWidth = 2.dp
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Filtering posts...",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.Gray
+                    )
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+        }
+        
         itemsIndexed(posts) { index, post ->
             // Log scroll position
             if (index == 0) {

@@ -25,6 +25,7 @@ data class HomeUiState(
     val error: String? = null,
     val showOnlyMyPosts: Boolean = false,
     val currentUser: User? = null,
+    val hasEverLoadedPosts: Boolean = false, // Track if we've ever loaded posts
     // Pagination fields
     val isLoadingMore: Boolean = false,
     val hasMorePosts: Boolean = true,
@@ -86,6 +87,7 @@ class HomeViewModel @Inject constructor(
                                 posts = posts,
                                 isLoading = false,
                                 error = null,
+                                hasEverLoadedPosts = true,
                                 lastVisiblePost = posts.lastOrNull()?.let { 
                                     Log.d(TAG, "📋 loadPosts: Setting lastVisiblePost for user posts")
                                     // We'll need the DocumentSnapshot, but for now just track the post
@@ -111,7 +113,8 @@ class HomeViewModel @Inject constructor(
                         _uiState.value = _uiState.value.copy(
                             posts = posts,
                             isLoading = false,
-                            error = null
+                            error = null,
+                            hasEverLoadedPosts = true
                         )
                     }
                 }
@@ -297,9 +300,9 @@ class HomeViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(
             showOnlyMyPosts = newShowOnlyMyPosts,
             // Reset pagination state when switching filters
-            posts = emptyList(),
             hasMorePosts = true,
             lastVisiblePost = null
+            // Don't clear posts here - let loadPosts handle the transition
         )
         loadPosts()
     }
