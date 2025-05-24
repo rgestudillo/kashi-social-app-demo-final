@@ -14,6 +14,7 @@ import javax.inject.Inject
 
 data class AuthUiState(
     val isLoading: Boolean = false,
+    val isInitializing: Boolean = true, // Track initial auth state determination
     val user: FirebaseUser? = null,
     val error: String? = null
 )
@@ -32,7 +33,8 @@ class AuthViewModel @Inject constructor(
             authRepository.authState.collect { user ->
                 _uiState.value = _uiState.value.copy(
                     user = user,
-                    isLoading = false
+                    isLoading = false,
+                    isInitializing = false // Auth state has been determined
                 )
             }
         }

@@ -15,6 +15,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.kashi.democalai.presentation.screen.HomeScreen
 import com.kashi.democalai.presentation.screen.LoginScreen
+import com.kashi.democalai.presentation.screen.SplashScreen
 import com.kashi.democalai.presentation.viewmodel.AuthViewModel
 import com.kashi.democalai.ui.theme.MyApplicationTheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -37,6 +38,12 @@ fun SocialFeedApp() {
     val navController = rememberNavController()
     val authViewModel: AuthViewModel = hiltViewModel()
     val uiState by authViewModel.uiState.collectAsStateWithLifecycle()
+    
+    // Show splash screen while determining auth state
+    if (uiState.isInitializing) {
+        SplashScreen()
+        return
+    }
     
     // Determine start destination based on auth state
     val startDestination = if (uiState.user != null) "home" else "login"
